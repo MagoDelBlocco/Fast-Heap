@@ -115,7 +115,7 @@ private:
     }
 
     [[gnu::hot]] inline bool is_leaf(unsigned pos) {
-        return !(right_son_pos(pos) < current_bound && left_son_pos(pos) < current_bound);
+        return !(right_son_pos(pos) < current_bound || left_son_pos(pos) < current_bound);
     }
 
     compare_by comparator;
