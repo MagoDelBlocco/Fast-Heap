@@ -1,21 +1,23 @@
 #pragma once
 
-template <class _elem, typename is_less_than>
+#include <iostream>
+#include <functional>
+
+#define DYNAMIC_ALLOC
+
+template <class _elem, typename compare_by = std::less<int>>
 class heap {  /// expects functor
 /// compare is expected to return bool value
 /// by-default min_heap, change compare function accordingly
 public:
-    heap(size_t _size = 1000) {
-        max_size = _size;
+    heap(size_t _size = 1024) : max_size(_size),
+        current_bound(1) {
         storage = new _elem[max_size];
-        current_bound = 1;
     }
 
-    heap(const heap<_elem, is_less_than>& target) {
-        *this = target;
-    }
+    heap(const heap<_elem, compare_by>& target) { *this = target; }
 
-    heap& operator = (const heap<_elem, is_less_than>& target) {
+    heap& operator = (const heap<_elem, compare_by>& target) {
         delete[] storage;
         max_size = target.max_size;
         storage = new _elem[max_size];
@@ -24,55 +26,67 @@ public:
         current_bound = target.current_bound;
     }
 
-    [[gnu::hot]] inline void add(_elem target) {
-        storage[current_bound] = target;
-        sift_up(current_bound);
-        ++current_bound;
-    }
-
     [[gnu::pure]] inline bool empty() { return (current_bound == 1); }
 
     [[gnu::pure]] inline _elem top() { return storage[1]; }
 
-    [[gnu::hot]] inline _elem pop() {
-        unsigned iterator = 1;
+    [[gnu::pure]] inline _elem last_item() { return storage[0]; }
 
-        _elem retval = storage[iterator];
-
-        while (!is_leaf(iterator)) {
-            if (comparator(left_son(iterator), right_son(iterator)))
-                storage[iterator] = left_son(iterator),
-                iterator = left_son_pos(iterator);
-            else
-                storage[iterator] = right_son(iterator),
-                iterator = right_son_pos(iterator);
+    [[gnu::hot]] inline void add(_elem target) {
+        storage[current_bound] = target;
+        sift_up(current_bound);
+#ifdef DYNAMIC_ALLOC
+        if (++current_bound == max_size) {
+            max_size <<= 1;
+            realloc(storage, max_size);
         }
-
-        storage[iterator] = storage[--current_bound];
-
-        return retval;
+#else
+        ++current_bound;
+#endif
     }
 
-    void run_diagnostic() {
-        for (unsigned i = 1; i < current_bound; ++i)
-            std::cout << storage[i] << " ";
-        std::cout << std::endl;
+    [[gnu::hot]] inline _elem pop() {
+        storage[0] = storage[1];
+        storage[1] = storage[--current_bound];
+
+        sift_down(1);
+
+        return storage[0];
     }
 
     ~heap() { delete[] storage; }
 
 private:
-    void sift_up(unsigned pos) {
-        unsigned target = parent_pos(pos);
-        _elem aux = storage[pos];
+    [[gnu::hot]] inline void sift_up(unsigned crawler) {
+        _elem aux = storage[crawler];
 
-        while (target && comparator(aux, storage[target])) {
-            storage[pos] = storage[target];
-            pos = target;
-            target = parent_pos(pos);
+        while (parent_pos(crawler) && comparator(aux, parent(crawler))) {
+            storage[crawler] = parent(crawler);
+            crawler = parent_pos(crawler);
         }
 
-        storage[pos] = aux;
+        storage[crawler] = aux;
+    }
+
+    [[gnu::hot]] inline void sift_down(unsigned crawler) {
+        _elem aux = storage[crawler];
+
+        while (!is_leaf(crawler)) {
+            if (!comparator(aux, left_son(crawler)) &&
+                !comparator(right_son(crawler), left_son(crawler))) {
+                storage[crawler] = left_son(crawler);
+                crawler = left_son_pos(crawler);
+            }
+            else if (!comparator(aux, right_son(crawler))) {
+                storage[crawler] = right_son(crawler);
+                crawler = right_son_pos(crawler);
+            }
+            else {
+                break;
+            }
+        }
+
+        storage[crawler] = aux;
     }
 
     [[gnu::hot, gnu::pure]] inline unsigned right_son_pos(unsigned pos) {
@@ -91,19 +105,19 @@ private:
         return storage[left_son_pos(pos)];
     }
 
-    [[gnu::hot]] inline unsigned parent_pos(unsigned pos) {
+    [[gnu::hot, gnu::pure]] inline unsigned parent_pos(unsigned pos) {
         return (pos >> 1);
     }
 
-    [[gnu::hot]] inline _elem parent(unsigned pos) {
+    [[gnu::hot, gnu::pure]] inline _elem parent(unsigned pos) {
         return storage[parent_pos(pos)];
     }
 
     [[gnu::hot]] inline bool is_leaf(unsigned pos) {
-        return right_son_pos(pos) < current_bound && left_son_pos(pos) < current_bound;
+        return !(right_son_pos(pos) < current_bound && left_son_pos(pos) < current_bound);
     }
 
-    is_less_than comparator;
+    compare_by comparator;
     size_t max_size, current_bound;
     _elem* storage;
 };
