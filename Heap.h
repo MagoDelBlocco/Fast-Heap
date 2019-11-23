@@ -73,8 +73,8 @@ private:
 
         while (!is_leaf(crawler)) {
             if (!comparator(aux, left_son(crawler)) &&
-                !comparator(right_son(crawler), left_son(crawler)) ||
-                right_son_pos == current_bound) {
+                (!comparator(right_son(crawler), left_son(crawler)) ||
+                    right_son_pos(crawler) == current_bound)) {
                 storage[crawler] = left_son(crawler);
                 crawler = left_son_pos(crawler);
             }
