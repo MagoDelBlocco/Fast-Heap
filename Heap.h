@@ -38,7 +38,7 @@ public:
 #ifdef DYNAMIC_ALLOC
         if (++current_bound == max_size) {
             max_size <<= 1;
-            realloc(storage, max_size);
+            storage = reinterpret_cast<_elem*>(realloc(storage, max_size * sizeof(_elem)));
         }
 #else
         ++current_bound;
